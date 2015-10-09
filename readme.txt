@@ -60,9 +60,14 @@ Please disable all plugins and check if backup is working properly. Then you can
 2. Content Settings
 3. Style Settings
 4. Conditions Settings
-5. All Notifications
 
 == Changelog ==
+
+= 1.0.1 =
+* Added ability to choose notification bar on single post and page
+* Added "Blog Homepage" location if static front page is choosen in Settings->Reading
+* Referer saved in session
+* Allowed html in "Text and Link/Button" content type
 
 = 1.0 =
 * Official plugin release.

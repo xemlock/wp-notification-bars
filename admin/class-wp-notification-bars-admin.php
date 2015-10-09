@@ -49,6 +49,8 @@ class MTSNBF_Admin {
 	 */
 	private $plugin_screen_hook_suffix = null;
 
+	private $force_bar_post_types;
+
 	/**
 	 * Initialize the class and set its properties.
 	 *
@@ -73,10 +75,15 @@ class MTSNBF_Admin {
 		$screen = get_current_screen();
 		$screen_id = $screen->id;
 
-		if ( 'mts_notification_bar' === $screen_id ) {
+		$force_bar_post_types = $this->force_bar_post_types;
+
+		if ( 'mts_notification_bar' === $screen_id || in_array( $screen_id, $force_bar_post_types ) ) {
 
 			wp_enqueue_style( 'wp-color-picker' );
 			wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/wp-notification-bars-admin.css', array(), $this->version, 'all' );
+			if ( 'mts_notification_bar' !== $screen_id ) {
+				wp_enqueue_style( $this->plugin_name.'_select2', plugin_dir_url( __FILE__ ) . 'css/select2.min.css', array(), $this->version, 'all' );
+			}
 		}
 	}
 
@@ -90,9 +97,22 @@ class MTSNBF_Admin {
 		$screen = get_current_screen();
 		$screen_id = $screen->id;
 
-		if ( 'mts_notification_bar' === $screen_id ) {
+		$force_bar_post_types = $this->force_bar_post_types;
+
+		if ( 'mts_notification_bar' === $screen_id || in_array( $screen_id, $force_bar_post_types ) ) {
 
 			wp_enqueue_script( 'wp-color-picker' );
+
+			if ( 'mts_notification_bar' !== $screen_id ) {
+
+				wp_enqueue_script(
+					$this->plugin_name.'_select2',
+					plugin_dir_url( __FILE__ ) . 'js/select2.full.min.js',
+					array('jquery'),
+					$this->version,
+					false
+				);
+			}
 
 			wp_enqueue_script(
 				$this->plugin_name,
@@ -102,6 +122,14 @@ class MTSNBF_Admin {
 					'wp-color-picker',
 				),
 				$this->version, false
+			);
+
+			wp_localize_script(
+				$this->plugin_name,
+				'mtsnb_locale',
+				array(
+					'select_placeholder' => __( 'Enter Notification Bar Title', $this->plugin_name ),
+				)
 			);
 		}
 	}
@@ -148,6 +176,16 @@ class MTSNBF_Admin {
 		);
 
 		register_post_type( 'mts_notification_bar' , $args );
+
+		// Filter supported post types where user ca override bar on single view
+		$force_bar_supported_post_types = apply_filters( 'mtsnb_force_bar_post_types', array( 'post', 'page' ) );
+
+		if ( ( $key = array_search( 'mts_notification_bar', $force_bar_supported_post_types ) ) !== false ) {
+
+			unset( $force_bar_supported_post_types[ $key ] );
+		}
+
+		$this->force_bar_post_types = $force_bar_supported_post_types;
 	}
 
 	/**
@@ -421,6 +459,7 @@ class MTSNBF_Admin {
 										<div class="mtsnb-conditions-panel-desc"><?php _e( 'Show Notification Bar on the following locations', $this->plugin_name ); ?></div>
 										<div class="mtsnb-conditions-panel-opt">
 											<?php $location_home       = isset( $value['conditions'] ) && isset( $value['conditions']['location'] ) && ( isset( $value['conditions']['location']['home'] ) && !empty( $value['conditions']['location']['home'] ) ) ? $value['conditions']['location']['home'] : '0'; ?>
+											<?php $location_blog_home  = isset( $value['conditions'] ) && isset( $value['conditions']['location'] ) && ( isset( $value['conditions']['location']['blog_home'] ) && !empty( $value['conditions']['location']['blog_home'] ) ) ? $value['conditions']['location']['blog_home'] : '0'; ?>
 											<?php $location_pages      = isset( $value['conditions'] ) && isset( $value['conditions']['location'] ) && ( isset( $value['conditions']['location']['pages'] ) && !empty( $value['conditions']['location']['pages'] ) ) ? $value['conditions']['location']['pages'] : '0'; ?>
 											<?php $location_posts      = isset( $value['conditions'] ) && isset( $value['conditions']['location'] ) && ( isset( $value['conditions']['location']['posts'] ) && !empty( $value['conditions']['location']['posts'] ) ) ? $value['conditions']['location']['posts'] : '0'; ?>
 											<p>
@@ -429,6 +468,14 @@ class MTSNBF_Admin {
 													<?php _e( 'Homepage.', $this->plugin_name ); ?>
 												</label>
 											</p>
+											<?php if ( 'page' === get_option('show_on_front') && '0' !== get_option('page_for_posts') && '0' !== get_option('page_on_front') ) { ?>
+												<p>
+													<label>
+														<input type="checkbox" class="mtsnb-checkbox" name="mtsnb_fields[conditions][location][blog_home]" id="mtsnb_fields_conditions_location_blog_home" value="1" <?php checked( $location_blog_home, '1', true ); ?> />
+														<?php _e( 'Blog Homepage.', $this->plugin_name ); ?>
+													</label>
+												</p>
+											<?php } ?>
 											<p>
 												<label>
 													<input type="checkbox" class="mtsnb-checkbox" name="mtsnb_fields[conditions][location][pages]" id="mtsnb_fields_conditions_location_pages" value="1" <?php checked( $location_pages, '1', true ); ?> />
@@ -449,15 +496,24 @@ class MTSNBF_Admin {
 									<div class="mtsnb-conditions-panel-content">
 										<div class="mtsnb-conditions-panel-desc"><?php _e( 'Hide Notification Bar on the following locations', $this->plugin_name ); ?></div>
 										<div class="mtsnb-conditions-panel-opt">
-											<?php $notlocation_home       = isset( $value['conditions'] ) && isset( $value['conditions']['notlocation'] ) && ( isset( $value['conditions']['notlocation']['home'] ) && !empty( $value['conditions']['notlocation']['home'] ) ) ? $value['conditions']['notlocation']['home'] : '0'; ?>
-											<?php $notlocation_pages      = isset( $value['conditions'] ) && isset( $value['conditions']['notlocation'] ) && ( isset( $value['conditions']['notlocation']['pages'] ) && !empty( $value['conditions']['notlocation']['pages'] ) ) ? $value['conditions']['notlocation']['pages'] : '0'; ?>
-											<?php $notlocation_posts      = isset( $value['conditions'] ) && isset( $value['conditions']['notlocation'] ) && ( isset( $value['conditions']['notlocation']['posts'] ) && !empty( $value['conditions']['notlocation']['posts'] ) ) ? $value['conditions']['notlocation']['posts'] : '0'; ?>
+											<?php $notlocation_home      = isset( $value['conditions'] ) && isset( $value['conditions']['notlocation'] ) && ( isset( $value['conditions']['notlocation']['home'] ) && !empty( $value['conditions']['notlocation']['home'] ) ) ? $value['conditions']['notlocation']['home'] : '0'; ?>
+											<?php $notlocation_blog_home = isset( $value['conditions'] ) && isset( $value['conditions']['notlocation'] ) && ( isset( $value['conditions']['notlocation']['blog_home'] ) && !empty( $value['conditions']['notlocation']['blog_home'] ) ) ? $value['conditions']['notlocation']['blog_home'] : '0'; ?>
+											<?php $notlocation_pages     = isset( $value['conditions'] ) && isset( $value['conditions']['notlocation'] ) && ( isset( $value['conditions']['notlocation']['pages'] ) && !empty( $value['conditions']['notlocation']['pages'] ) ) ? $value['conditions']['notlocation']['pages'] : '0'; ?>
+											<?php $notlocation_posts     = isset( $value['conditions'] ) && isset( $value['conditions']['notlocation'] ) && ( isset( $value['conditions']['notlocation']['posts'] ) && !empty( $value['conditions']['notlocation']['posts'] ) ) ? $value['conditions']['notlocation']['posts'] : '0'; ?>
 											<p>
 												<label>
 													<input type="checkbox" class="mtsnb-checkbox" name="mtsnb_fields[conditions][notlocation][home]" id="mtsnb_fields_conditions_notlocation_home" value="1" <?php checked( $notlocation_home, '1', true ); ?> />
 													<?php _e( 'Homepage.', $this->plugin_name ); ?>
 												</label>
 											</p>
+											<?php if ( 'page' === get_option('show_on_front') && '0' !== get_option('page_for_posts') && '0' !== get_option('page_on_front') ) { ?>
+												<p>
+													<label>
+														<input type="checkbox" class="mtsnb-checkbox" name="mtsnb_fields[conditions][notlocation][blog_home]" id="mtsnb_fields_conditions_notlocation_blog_home" value="1" <?php checked( $notlocation_blog_home, '1', true ); ?> />
+														<?php _e( 'Blog Homepage.', $this->plugin_name ); ?>
+													</label>
+												</p>
+											<?php } ?>
 											<p>
 												<label>
 													<input type="checkbox" class="mtsnb-checkbox" name="mtsnb_fields[conditions][notlocation][pages]" id="mtsnb_fields_conditions_notlocation_pages" value="1" <?php checked( $notlocation_pages, '1', true ); ?> />
@@ -714,5 +770,191 @@ class MTSNBF_Admin {
 		}
 
 		return $messages;
+	}
+
+
+	/**
+	 * Single post view bar select
+	 *
+	 * @since    1.0.1
+	 */
+	public function mtsnb_select_metabox_insert() {
+		
+		$force_bar_post_types = $this->force_bar_post_types;
+
+		if ( $force_bar_post_types && is_array( $force_bar_post_types ) ) {
+
+			foreach ( $force_bar_post_types as $screen ) {
+
+				add_meta_box(
+					'mtsnb_single_bar_metabox',
+					__( 'Notification Bar', $this->plugin_name ),
+					array( $this, 'mtsnb_select_metabox_content' ),
+					$screen,
+					'side',
+					'default'
+				);
+			}
+		}
+	}
+	public function mtsnb_select_metabox_content( $post ) {
+
+		// Add an nonce field so we can check for it later.
+		wp_nonce_field('mtsnb_select_metabox_save', 'mtsnb_select_metabox_nonce');
+
+		/*
+		* Use get_post_meta() to retrieve an existing value
+		* from the database and use the value for the form.
+		*/
+		$bar = get_post_meta( $post->ID, '_mtsnb_override_bar', true );
+
+		$processed_item_ids = '';
+		if ( !empty( $bar ) ) {
+			// Some entries may be arrays themselves!
+			$processed_item_ids = array();
+			foreach ($bar as $this_id) {
+				if (is_array($this_id)) {
+					$processed_item_ids = array_merge( $processed_item_ids, $this_id );
+				} else {
+					$processed_item_ids[] = $this_id;
+				}
+			}
+
+			if (is_array($processed_item_ids) && !empty($processed_item_ids)) {
+				$processed_item_ids = implode(',', $processed_item_ids);
+			} else {
+				$processed_item_ids = '';
+			}
+		}
+		?>
+		<p>
+			<label for="mtsnb_override_bar_field"><?php _e( 'Select Notification Bar (optional):', $this->plugin_name ); ?></label><br />
+			<input style="width: 400px;" type="hidden" id="mtsnb_override_bar_field" name="mtsnb_override_bar_field" class="mtsnb-bar-select"  value="<?php echo $processed_item_ids; ?>" />
+		</p>
+		<p>
+			<i><?php _e( 'Selected notification bar will override any other bar.', $this->plugin_name ); ?></i>
+		</p>
+		<?php
+	}
+
+	public function mtsnb_select_metabox_save( $post_id ) {
+
+		// Check if our nonce is set.
+		if ( ! isset( $_POST['mtsnb_select_metabox_nonce'] ) ) {
+			return;
+		}
+		// Verify that the nonce is valid.
+		if ( ! wp_verify_nonce( $_POST['mtsnb_select_metabox_nonce'], 'mtsnb_select_metabox_save' ) ) {
+			return;
+		}
+		// If this is an autosave, our form has not been submitted, so we don't want to do anything.
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+
+		// Check the user's permissions.
+		if ( 'page' == $_POST['post_type'] ) {
+
+			if ( ! current_user_can( 'edit_page', $post_id ) )
+				return;
+
+		} else {
+
+			if ( ! current_user_can( 'edit_post', $post_id ) )
+				return;
+		}
+
+		/* OK, its safe for us to save the data now. */
+		if ( ! isset( $_POST['mtsnb_override_bar_field'] ) ) {
+			return;
+		}
+
+		$val = $_POST['mtsnb_override_bar_field'];
+
+		if (strpos($val, ',') === false) {
+			// No comma, must be single value - still needs to be in an array for now
+			$post_ids = array( $val );
+		} else {
+			// There is a comma so it's explodable
+			$post_ids = explode(',', $val);
+		}
+
+		// Update the meta field in the database.
+		update_post_meta( $post_id, '_mtsnb_override_bar', $post_ids );
+	}
+
+	/**
+	 * Bar select ajax function
+	 *
+	 * @since    1.0.1
+	 */
+	public function mtsnb_get_bars() {
+
+		$result = array();
+
+		$search = $_REQUEST['q'];
+
+		$ads_query = array(
+			'posts_per_page' => -1,
+			'post_status' => array('publish'),
+			'post_type' => 'mts_notification_bar',
+			'order' => 'ASC',
+			'orderby' => 'title',
+			'suppress_filters' => false,
+			's'=> $search
+		);
+		$posts = get_posts( $ads_query );
+
+		// We'll return a JSON-encoded result.
+		foreach ( $posts as $this_post ) {
+			$post_title = $this_post->post_title;
+			$id = $this_post->ID;
+
+			$result[] = array(
+				'id' => $id,
+				'title' => $post_title,
+			);
+		}
+
+	    echo json_encode( $result );
+
+	    die();
+	}
+
+	public function mtsnb_get_bar_titles() {
+		$result = array();
+
+		if (isset($_REQUEST['post_ids'])) {
+			$post_ids = $_REQUEST['post_ids'];
+			if (strpos($post_ids, ',') === false) {
+				// There is no comma, so we can't explode, but we still want an array
+				$post_ids = array( $post_ids );
+			} else {
+				// There is a comma, so it must be explodable
+				$post_ids = explode(',', $post_ids);
+			}
+		} else {
+			$post_ids = array();
+		}
+
+		if (is_array($post_ids) && ! empty($post_ids)) {
+
+			$posts = get_posts(array(
+				'posts_per_page' => -1,
+				'post_status' => array('publish'),
+				'post__in' => $post_ids,
+				'post_type' => 'mts_notification_bar'
+			));
+			foreach ( $posts as $this_post ) {
+				$result[] = array(
+					'id' => $this_post->ID,
+					'title' => $this_post->post_title,
+				);
+			}
+		}
+
+		echo json_encode( $result );
+
+		die();
 	}
 }

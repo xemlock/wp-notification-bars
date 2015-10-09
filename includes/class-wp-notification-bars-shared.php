@@ -81,14 +81,35 @@ class MTSNBF_Shared {
 
 		if ( is_admin() ) return;
 
+		$bar_id   = false;
+		$bar_data = false;
+
+		if ( is_singular() && in_array( get_post_type(), apply_filters( 'mtsnb_force_bar_post_types', array( 'post', 'page' ) ) ) ) {
+
+			global $post;
+			$bar = get_post_meta( $post->ID, '_mtsnb_override_bar', true );
+
+			if ( $bar && !empty( $bar ) ) {
+
+				$bar_id = isset( $bar[0] ) ? $bar[0] : false;
+
+				if ( $bar_id && !empty( $bar_id ) ) {
+
+					$meta_values = get_post_meta( $bar_id, '_mtsnb_data', true );
+
+					$this->bar_id   = $bar_id;
+					$this->bar_data = $meta_values;
+
+					return;
+				}
+			}
+		}
+
 		$args = array(
 			'post_type' => 'mts_notification_bar',
 			'posts_per_page' => -1,
 			'post_status' => 'publish',
 		);
-
-		$bar_id   = false;
-		$bar_data = false;
 
 		$all_bars = get_posts( $args );
 		foreach( $all_bars as $post ) :
@@ -221,8 +242,8 @@ class MTSNBF_Shared {
 
 			case 'button':
 
-				$text       = esc_html( $options['basic_text'] );
-				$link_text  = esc_html( $options['basic_link_text'] );
+				$text       = wp_kses_post( $options['basic_text'] );
+				$link_text  = wp_kses_post( $options['basic_link_text'] );
 				$link_url   = esc_url( $options['basic_link_url'] );
 				$link_style = $options['basic_link_style'];
 
@@ -352,7 +373,16 @@ class MTSNBF_Shared {
 		// Enable on locations
 		if ( !empty( $meta_values['conditions']['location']['state'] ) ) {
 
-			if ( is_home() && isset( $meta_values['conditions']['location']['home'] ) ) {
+			if (
+				'page' === get_option('show_on_front') &&
+				'0' !== get_option('page_for_posts') &&
+				'0' !== get_option('page_on_front') &&
+				( ( is_front_page() && isset( $meta_values['conditions']['location']['home'] ) ) || ( is_home() && isset( $meta_values['conditions']['location']['blog_home'] ) ) )
+			) {
+
+				return true;
+
+			} else if ( is_front_page() && isset( $meta_values['conditions']['location']['home'] ) ) {
 
 				return true;
 
@@ -371,7 +401,16 @@ class MTSNBF_Shared {
 		// Disable on locations
 		if ( !empty( $meta_values['conditions']['notlocation']['state'] ) ) {
 
-			if ( is_home() && isset( $meta_values['conditions']['notlocation']['home'] ) ) {
+			if (
+				'page' === get_option('show_on_front') &&
+				'0' !== get_option('page_for_posts') &&
+				'0' !== get_option('page_on_front') &&
+				( ( is_front_page() && isset( $meta_values['conditions']['notlocation']['home'] ) ) || ( is_home() && isset( $meta_values['conditions']['notlocation']['blog_home'] ) ) )
+			) {
+
+				return false;
+
+			} else if ( is_front_page() && isset( $meta_values['conditions']['notlocation']['home'] ) ) {
 
 				return false;
 
@@ -450,23 +489,20 @@ class MTSNBF_Shared {
 	 */
 	public function get_referrer() {
 
-		$referer = '';
+		$referer = wp_unslash( $_SERVER['HTTP_REFERER'] );
 
-		if ( !isset( $_COOKIE['mtsnb_referrer'] ) ) {
+		if ( $referer && !empty( $referer ) ) {
 
-			$referer = wp_get_referer();
-
-			// Set cookie only if referrer url actually exists
-			if ( $referer || !empty( $referer ) ) {
-
-				$secure = ( 'https' === parse_url( home_url(), PHP_URL_SCHEME ) );// maybe not needed
-				setcookie( 'mtsnb_referrer', esc_url( $referer ), time() + ( 86400 * 365 ), COOKIEPATH, COOKIE_DOMAIN, $secure ); // 86400 = 1 day
-			}
+			$secure = ( 'https' === parse_url( home_url(), PHP_URL_SCHEME ) );// maybe not needed
+			setcookie( 'mtsnb_referrer', esc_url( $referer ), 0, COOKIEPATH, COOKIE_DOMAIN, $secure ); // session
 
 		} else {
 
-			// Stored referrer url
-			$referer = $_COOKIE['mtsnb_referrer'];
+			if ( isset( $_COOKIE['mtsnb_referrer'] ) ) {
+
+				// Stored referrer url
+				$referer = $_COOKIE['mtsnb_referrer'];
+			}
 		}
 
 		return $referer;

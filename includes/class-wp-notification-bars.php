@@ -69,7 +69,7 @@ class MTSNBF {
 	public function __construct() {
 
 		$this->plugin_name = 'wp-notification-bars';
-		$this->version = '1.0';
+		$this->version = '1.0.1';
 
 		$this->load_dependencies();
 		$this->set_locale();
@@ -171,6 +171,12 @@ class MTSNBF {
 		$this->loader->add_action( 'post_submitbox_misc_actions', $plugin_admin, 'add_preview_button' );
 
 		$this->loader->add_filter( 'post_updated_messages', $plugin_admin, 'mtsnb_update_messages' );
+
+		// Force notification bar metabox
+		$this->loader->add_action( 'add_meta_boxes', $plugin_admin, 'mtsnb_select_metabox_insert' );
+		$this->loader->add_action( 'save_post', $plugin_admin, 'mtsnb_select_metabox_save' );
+		$this->loader->add_action( 'wp_ajax_mtsnb_get_bars', $plugin_admin, 'mtsnb_get_bars' );
+		$this->loader->add_action( 'wp_ajax_mtsnb_get_bar_titles', $plugin_admin, 'mtsnb_get_bar_titles' );
 	}
 
 	/**
